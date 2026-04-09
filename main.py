@@ -20,6 +20,9 @@ app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('SQLALCHEMY_URI')
 app.config["CACHE_TYPE"] = 'SimpleCache'
 app.config["CACHE_DEFAULT_TIMEOUT"] = 10
 app.secret_key = os.getenv('SECRET_KEY')
+
+app.logger.setLevel("INFO")
+
 db.init_app(app)
 login_manager = LoginManager()
 login_manager.login_message = "You must be logged in to access this page."
@@ -48,6 +51,7 @@ cache = Cache(app)
 @cache.cached(timeout=15)
 def get_current_user(id: int):
     print("Asking for database")
+    app.logger.info("Asking for database")
     return User.query.filter_by(id=id).first()
 
 
@@ -59,6 +63,7 @@ def sign_up():
         user = User.query.filter_by(username=username).first()
         if user:
             flash(f"User with username {username} already exists")
+            app.logger.warning(f"User with username {username} already exists")
             return redirect(url_for('sign_up'))
         
         user = User(
@@ -71,7 +76,10 @@ def sign_up():
         db.session.add(user)
         db.session.commit()
         flash("You have successfully registered")
+        app.logger.info(f"User with username {username} has been successfully registered")
         return redirect(url_for('sign_in'))
+    
+    app.logger.info("Rendering sign up page")
     return render_template('sign_up.html')
 
 
@@ -86,9 +94,11 @@ def sign_in():
         print(user, user.is_verify_password(password) if user else None, user.is_active if user else None)
         if not any ([user, user.is_verify_password(password), user.is_active]):
             flash("Invalid username or password")
+            app.logger.error("Someone hacking our system...")
             return redirect(url_for('sign_in'))
         
-        session['username'] = username
+        login_user(user)
+        app.logger.info("USER LOGGED IN!!!")
         return redirect(url_for('index'))
     return render_template('sign_in.html')
 
